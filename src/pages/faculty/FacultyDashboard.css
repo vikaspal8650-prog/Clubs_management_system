@@ -1,0 +1,141 @@
+.dashboard-hero__badge--info {
+  background-color: var(--info-50);
+  color: var(--info-700);
+  border-color: var(--info-100);
+}
+
+.assigned-clubs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-4);
+}
+
+.assigned-club-card {
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.assigned-club-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.assigned-club-card__logo {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  border: 1px solid var(--slate-200);
+}
+
+.assigned-club-card__title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--slate-900);
+}
+
+.assigned-club-card__dept {
+  font-size: 0.775rem;
+  color: var(--slate-500);
+}
+
+.assigned-club-card__desc {
+  font-size: 0.8125rem;
+  color: var(--slate-600);
+  line-height: 1.4;
+  flex: 1;
+}
+
+.assigned-club-card__coordinators {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: var(--space-3);
+  background-color: var(--slate-50);
+  border-radius: var(--radius-md);
+}
+
+.coordinator-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.assigned-club-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--slate-100);
+}
+
+/* Coordinators List Table */
+.coordinators-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.coordinator-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--slate-50);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--slate-200);
+  gap: var(--space-3);
+}
+
+.coordinator-row__info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.coordinator-row__icon {
+  color: var(--warning-600);
+}
+
+.coordinator-row__name {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--slate-900);
+  display: block;
+}
+
+.coordinator-row__email {
+  font-size: 0.75rem;
+  color: var(--slate-500);
+}
+
+.attendance-placeholder-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-8);
+  gap: var(--space-3);
+  background-color: var(--slate-50);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--slate-300);
+}
+
+.attendance-icon {
+  color: var(--primary-600);
+}
+
+.attendance-placeholder-box h4 {
+  font-size: 1.125rem;
+  color: var(--slate-900);
+}
+
+.attendance-placeholder-box p {
+  font-size: 0.875rem;
+  color: var(--slate-500);
+  max-width: 480px;
+}

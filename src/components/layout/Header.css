@@ -1,0 +1,321 @@
+.app-header {
+  height: var(--header-height);
+  background-color: #ffffff;
+  border-bottom: 1px solid var(--slate-200);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-6);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.app-header__left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.header-toggle-btn {
+  display: none;
+  color: var(--slate-600);
+  padding: 0.35rem;
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+}
+
+.header-toggle-btn:hover {
+  background-color: var(--slate-100);
+}
+
+.header-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  font-family: var(--font-body);
+}
+
+.header-breadcrumbs__system {
+  color: var(--slate-500);
+  font-weight: 500;
+}
+
+.header-breadcrumbs__separator {
+  color: var(--slate-300);
+}
+
+.header-breadcrumbs__role {
+  color: var(--slate-900);
+  font-weight: 700;
+}
+
+.app-header__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* Demo Role Switcher */
+.demo-role-switcher {
+  position: relative;
+}
+
+.demo-role-switcher__btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.35rem 0.75rem;
+  background-color: var(--primary-50);
+  border: 1px solid var(--primary-200);
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  color: var(--primary-800);
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.demo-role-switcher__btn:hover {
+  background-color: var(--primary-100);
+}
+
+.demo-role-switcher__icon {
+  color: var(--primary-600);
+}
+
+.demo-role-switcher__label {
+  color: var(--primary-600);
+}
+
+.demo-role-switcher__current {
+  font-weight: 700;
+}
+
+.demo-role-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 340px;
+  background-color: #ffffff;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--slate-200);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-2);
+  z-index: 110;
+  animation: modalScaleIn 0.15s ease-out;
+}
+
+.demo-role-dropdown__header {
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--slate-100);
+  margin-bottom: var(--space-1);
+}
+
+.demo-role-dropdown__title {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--slate-800);
+}
+
+.demo-role-dropdown__hint {
+  font-size: 0.6875rem;
+  color: var(--slate-400);
+  font-weight: 500;
+}
+
+.demo-role-dropdown__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.demo-role-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  text-align: left;
+  transition: background-color var(--transition-fast);
+}
+
+.demo-role-item:hover {
+  background-color: var(--slate-50);
+}
+
+.demo-role-item--active {
+  background-color: var(--primary-50);
+}
+
+.demo-role-item__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.demo-role-item__name {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--slate-900);
+}
+
+.demo-role-item__desc {
+  font-size: 0.6875rem;
+  color: var(--slate-500);
+}
+
+.demo-role-item__check {
+  color: var(--primary-600);
+}
+
+/* Icon Buttons */
+.header-icon-btn {
+  position: relative;
+  color: var(--slate-600);
+  padding: 0.4rem;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color var(--transition-fast);
+}
+
+.header-icon-btn:hover {
+  background-color: var(--slate-100);
+  color: var(--slate-900);
+}
+
+.header-icon-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--danger-500);
+  border: 1px solid #ffffff;
+}
+
+/* Profile dropdown */
+.header-profile {
+  position: relative;
+}
+
+.header-profile__btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-full);
+  transition: background-color var(--transition-fast);
+}
+
+.header-profile__btn:hover {
+  background-color: var(--slate-100);
+}
+
+.header-profile__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.header-profile__name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--slate-800);
+}
+
+.header-profile__chevron {
+  color: var(--slate-400);
+}
+
+.header-profile-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 240px;
+  background-color: #ffffff;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--slate-200);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-3);
+  z-index: 110;
+  animation: modalScaleIn 0.15s ease-out;
+}
+
+.header-profile-dropdown__user {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.header-profile-dropdown__name {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--slate-900);
+}
+
+.header-profile-dropdown__email {
+  font-size: 0.75rem;
+  color: var(--slate-500);
+  word-break: break-all;
+}
+
+.header-profile-dropdown__tag {
+  margin-top: 0.35rem;
+}
+
+.header-profile-dropdown__divider {
+  height: 1px;
+  background-color: var(--slate-100);
+  margin: var(--space-3) 0;
+}
+
+.header-profile-dropdown__item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+}
+
+.header-profile-dropdown__item--danger {
+  color: var(--danger-600);
+}
+
+.header-profile-dropdown__item--danger:hover {
+  background-color: var(--danger-50);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .header-toggle-btn {
+    display: flex;
+  }
+}
+
+@media (max-width: 640px) {
+  .header-breadcrumbs__system {
+    display: none;
+  }
+  .header-breadcrumbs__separator {
+    display: none;
+  }
+  .demo-role-switcher__label {
+    display: none;
+  }
+  .demo-role-dropdown {
+    width: 280px;
+  }
+}

@@ -1,0 +1,153 @@
+.student-hero {
+  align-items: center;
+}
+
+.student-hero__left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.student-hero__avatar {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+.student-hero__badges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.student-hero__details {
+  font-size: 0.8125rem;
+  color: var(--slate-500);
+  margin-top: 0.25rem;
+}
+
+.tab-btn--coordinator {
+  color: var(--warning-700);
+  font-weight: 700;
+}
+
+.tab-btn--coordinator.tab-btn--active {
+  color: var(--warning-700);
+  border-bottom-color: var(--warning-600);
+}
+
+/* Coordinator Hero Banner */
+.coordinator-hero-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  background: linear-gradient(135deg, var(--warning-50), #ffffff);
+  border: 1px solid var(--warning-200);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xs);
+  flex-wrap: wrap;
+}
+
+.coordinator-hero-card__icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background-color: var(--warning-100);
+  color: var(--warning-700);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.coordinator-hero-card__text {
+  flex: 1;
+}
+
+.coordinator-hero-card__text h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--slate-900);
+}
+
+.coordinator-hero-card__text p {
+  font-size: 0.8125rem;
+  color: var(--slate-600);
+  margin-top: 0.15rem;
+}
+
+/* Attendance check-in */
+.attendance-checkin-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-6);
+  gap: var(--space-4);
+}
+
+.attendance-qr-display,
+.attendance-qr-placeholder {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  border: 1px solid var(--primary-200);
+  border-radius: var(--radius-xl);
+  background: var(--primary-50);
+}
+
+.attendance-qr-display svg { width: min(224px, 100%); height: auto; padding: 0.75rem; background: #fff; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); }
+.attendance-qr-display strong { color: var(--slate-900); text-align: center; }
+.attendance-qr-display span, .attendance-qr-placeholder span { font-size: 0.8125rem; color: var(--slate-600); text-align: center; }
+.attendance-qr-placeholder { min-height: 150px; justify-content: center; color: var(--slate-400); border-style: dashed; background: var(--slate-50); }
+
+.qr-scanner-frame {
+  width: 200px;
+  height: 200px;
+  border: 2px dashed var(--primary-500);
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--slate-50);
+  position: relative;
+  overflow: hidden;
+}
+
+.qr-scanner-icon {
+  color: var(--slate-400);
+}
+
+.qr-scan-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: var(--primary-600);
+  box-shadow: 0 0 8px var(--primary-500);
+  animation: qrScan 2s infinite ease-in-out;
+}
+
+@keyframes qrScan {
+  0% {
+    top: 5%;
+  }
+  50% {
+    top: 90%;
+  }
+  100% {
+    top: 5%;
+  }
+}

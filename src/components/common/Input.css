@@ -1,0 +1,111 @@
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+.form-label {
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--slate-700);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.form-label__required {
+  color: var(--danger-600);
+  font-weight: 700;
+}
+
+.input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.input-control {
+  width: 100%;
+  height: 2.625rem;
+  padding: 0 0.875rem;
+  font-size: 0.875rem;
+  font-family: var(--font-body);
+  color: var(--slate-900);
+  background-color: #ffffff;
+  border: 1px solid var(--slate-300);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input-control::placeholder {
+  color: var(--slate-400);
+}
+
+.input-control:hover:not(:disabled) {
+  border-color: var(--slate-400);
+}
+
+.input-control:focus {
+  border-color: var(--primary-600);
+  box-shadow: 0 0 0 3px var(--primary-100);
+}
+
+.input-wrapper--disabled .input-control {
+  background-color: var(--slate-100);
+  color: var(--slate-500);
+  cursor: not-allowed;
+}
+
+/* Icon positioning */
+.input-icon--prefix {
+  position: absolute;
+  left: 0.75rem;
+  display: flex;
+  align-items: center;
+  color: var(--slate-400);
+  pointer-events: none;
+}
+
+.input-control--has-prefix {
+  padding-left: 2.375rem;
+}
+
+.input-suffix {
+  position: absolute;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+}
+
+.input-control--has-suffix {
+  padding-right: 2.5rem;
+}
+
+/* Error states */
+.form-group--error .input-control {
+  border-color: var(--danger-500);
+}
+
+.form-group--error .input-control:focus {
+  border-color: var(--danger-600);
+  box-shadow: 0 0 0 3px var(--danger-100);
+}
+
+.form-feedback {
+  font-size: 0.75rem;
+  line-height: 1.25;
+  margin-top: 0.15rem;
+}
+
+.form-feedback--error {
+  color: var(--danger-600);
+  font-weight: 500;
+}
+
+.form-feedback--helper {
+  color: var(--slate-500);
+}

@@ -1,0 +1,194 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String             @id @default(uuid())
+  name               String
+  email              String             @unique
+  password           String
+  role               String             // DSW, HOD, FACULTY_INCHARGE, STUDENT
+  status             String             @default("ACTIVE") // ACTIVE, INACTIVE
+  department         String?
+  branch             String?
+  year               String?
+  semester           String?
+  rollNumber         String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  // Relationships
+  clubsAsFaculty     Club[]             @relation("FacultyIncharge")
+  coordinatedClubs   ClubCoordinator[]
+  joinedClubs        ClubMember[]
+  eventApprovals     EventApproval[]
+  eventRegistrations EventRegistration[]
+  attendances        Attendance[]
+  notifications      Notification[]
+  activityLogs       ActivityLog[]
+  departmentsLed    Department[]       @relation("DepartmentHod")
+  clubsAsHod        Club[]             @relation("ClubHod")
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String   @unique
+  description String?
+  status      String   @default("ACTIVE")
+  hodId       String?  @unique
+  hod         User?    @relation("DepartmentHod", fields: [hodId], references: [id], onDelete: SetNull)
+  clubs       Club[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Club {
+  id                 String             @id @default(uuid())
+  name               String
+  description        String
+  department         String
+  departmentId       String?
+  hodId              String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  // Relationships
+  facultyInchargeId  String?
+  facultyIncharge    User?              @relation("FacultyIncharge", fields: [facultyInchargeId], references: [id])
+  departmentRecord   Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  hod                User?              @relation("ClubHod", fields: [hodId], references: [id], onDelete: SetNull)
+  coordinators       ClubCoordinator[]
+  members            ClubMember[]
+  events             Event[]
+}
+
+model ClubCoordinator {
+  id        String   @id @default(uuid())
+  clubId    String
+  userId    String
+  createdAt DateTime @default(now())
+
+  club      Club     @relation(fields: [clubId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([clubId, userId])
+}
+
+model ClubMember {
+  id        String   @id @default(uuid())
+  clubId    String
+  userId    String
+  joinedAt  DateTime @default(now())
+
+  club      Club     @relation(fields: [clubId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([clubId, userId])
+}
+
+model Event {
+  id                String             @id @default(uuid())
+  title             String
+  description       String
+  date              DateTime
+  startTime         String
+  endTime           String
+  venue             String
+  capacity          Int
+  status            String             // DRAFT, PENDING_FACULTY, PENDING_HOD, APPROVED, REJECTED_BY_FACULTY, REJECTED_BY_HOD, OVERRIDDEN_BY_DSW
+  rejectionReason   String?
+  objective         String?
+  additionalDetails String?
+  coordinatorId     String?
+  facultyDecision   String?
+  facultyDecisionAt DateTime?
+  hodDecision       String?
+  hodDecisionAt     DateTime?
+  officiallyDeclared Boolean @default(false)
+  officialPdfUrl    String?
+  clubId            String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  // Relationships
+  club              Club               @relation(fields: [clubId], references: [id])
+  approvals         EventApproval[]
+  registrations     EventRegistration[]
+  attendances       Attendance[]
+  documents         Document[]
+}
+
+model EventApproval {
+  id        String   @id @default(uuid())
+  eventId   String
+  userId    String
+  status    String   // APPROVED, REJECTED
+  reason    String?
+  role      String   // FACULTY_INCHARGE, HOD, DSW
+  createdAt DateTime @default(now())
+
+  event     Event    @relation(fields: [eventId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model EventRegistration {
+  id             String   @id @default(uuid())
+  eventId        String
+  userId         String
+  registeredAt   DateTime @default(now())
+
+  event          Event    @relation(fields: [eventId], references: [id])
+  user           User     @relation(fields: [userId], references: [id])
+
+  @@unique([eventId, userId])
+}
+
+model Attendance {
+  id           String   @id @default(uuid())
+  eventId      String
+  userId       String
+  status       String   // PRESENT, ABSENT
+  markedAt     DateTime @default(now())
+
+  event        Event    @relation(fields: [eventId], references: [id])
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@unique([eventId, userId])
+}
+
+model Document {
+  id           String   @id @default(uuid())
+  title        String
+  category     String   // Event Proposal, Permission Letter, Poster, etc.
+  fileUrl      String
+  eventId      String?
+  createdAt    DateTime @default(now())
+
+  event        Event?   @relation(fields: [eventId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String
+  details   String?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+}

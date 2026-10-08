@@ -1,0 +1,88 @@
+.card {
+  background-color: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+}
+
+.card--bordered {
+  border: 1px solid var(--slate-200);
+}
+
+.card--hoverable {
+  cursor: pointer;
+}
+
+.card--hoverable:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--slate-300);
+}
+
+/* Padding variants */
+.card--pad-none {
+  padding: 0;
+}
+
+.card--pad-sm {
+  padding: var(--space-3);
+}
+
+.card--pad-default {
+  padding: var(--space-5);
+}
+
+.card--pad-lg {
+  padding: var(--space-8);
+}
+
+/* Sub-components */
+.card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.card__header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.card__header-action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.card__title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--slate-900);
+  line-height: 1.3;
+}
+
+.card__description {
+  font-size: 0.875rem;
+  color: var(--slate-500);
+  line-height: 1.4;
+}
+
+.card__content {
+  flex: 1;
+}
+
+.card__footer {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--slate-100);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}

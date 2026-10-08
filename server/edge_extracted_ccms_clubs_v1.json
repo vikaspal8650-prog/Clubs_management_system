@@ -1,0 +1,38 @@
+[
+  {
+    "id": "club_1789100272468",
+    "name": "Equinox club",
+    "department": "Computer Science & Engineering",
+    "category": "Technical",
+    "description": "",
+    "facultyInchargeId": "usr_faculty_1789535897440",
+    "facultyInchargeName": "Dr. Juhi Chaudhary",
+    "coordinators": [
+      {
+        "id": "usr_student_1789102734220",
+        "name": "Ishika Joshi",
+        "email": "ishikaequinox123@gmail.com"
+      }
+    ],
+    "memberCount": 6,
+    "activeEventsCount": 0,
+    "status": "ACTIVE",
+    "establishedYear": 2026,
+    "logoUrl": "https://api.dicebear.com/7.x/initials/svg?seed=Equinox%20club"
+  },
+  {
+    "id": "club_1789452442521",
+    "name": "synergy",
+    "department": "Electrical Engineering",
+    "category": "Technical",
+    "description": "",
+    "facultyInchargeId": "usr_faculty_1789458892506",
+    "facultyInchargeName": "Mr. Madhur Sharma",
+    "coordinators": [],
+    "memberCount": 3,
+    "activeEventsCount": 0,
+    "status": "ACTIVE",
+    "establishedYear": 2026,
+    "logoUrl": "https://api.dicebear.com/7.x/initials/svg?seed=synergy"
+  }
+]

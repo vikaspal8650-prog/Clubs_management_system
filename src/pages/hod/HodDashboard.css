@@ -1,0 +1,151 @@
+.dashboard-hero__badge--purple {
+  background-color: var(--purple-50);
+  color: var(--purple-700);
+  border-color: var(--purple-100);
+}
+
+/* Workflow Steps Visualizer */
+.workflow-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+  position: relative;
+}
+
+.workflow-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--slate-200);
+  background-color: var(--slate-50);
+}
+
+.workflow-step__num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: var(--slate-200);
+  color: var(--slate-700);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.workflow-step__content {
+  display: flex;
+  flex-direction: column;
+}
+
+.workflow-step__content strong {
+  font-size: 0.8125rem;
+  color: var(--slate-900);
+}
+
+.workflow-step__content span {
+  font-size: 0.725rem;
+  color: var(--slate-500);
+}
+
+.workflow-step--completed {
+  border-color: var(--success-100);
+  background-color: var(--success-50);
+}
+
+.workflow-step--completed .workflow-step__num {
+  background-color: var(--success-600);
+  color: #ffffff;
+}
+
+.workflow-step--active {
+  border-color: var(--primary-200);
+  background-color: var(--primary-50);
+}
+
+.workflow-step--active .workflow-step__num {
+  background-color: var(--primary-600);
+  color: #ffffff;
+}
+
+/* Review Item Card */
+.event-reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.review-item-card {
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.review-item-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.review-item-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.review-item-card__title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--slate-900);
+  margin-top: 0.35rem;
+}
+
+.review-item-card__club {
+  font-size: 0.8125rem;
+  color: var(--slate-500);
+}
+
+.review-item-card__desc {
+  font-size: 0.875rem;
+  color: var(--slate-700);
+  line-height: 1.5;
+}
+
+.review-item-card__details {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.detail-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  background-color: var(--slate-100);
+  border-radius: var(--radius-md);
+  font-size: 0.775rem;
+  color: var(--slate-700);
+  font-weight: 500;
+}
+
+.detail-pill--highlight {
+  background-color: var(--success-50);
+  color: var(--success-700);
+  border: 1px solid var(--success-100);
+  font-weight: 600;
+}
+
+.review-item-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--slate-100);
+}

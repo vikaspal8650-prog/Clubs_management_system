@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: ccms_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ccms_user
+      POSTGRES_PASSWORD: ccms_password
+      POSTGRES_DB: ccms_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - ccms_pgdata:/var/lib/postgresql/data
+
+volumes:
+  ccms_pgdata:
