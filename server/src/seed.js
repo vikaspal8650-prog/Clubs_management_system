@@ -320,6 +320,8 @@ async function seed() {
     create: {
       clubId: 'club_coding_ai',
       userId: 'usr_student_priya',
+      facultyId: 'usr_faculty_coding',
+      status: 'ACTIVE',
     },
   });
 

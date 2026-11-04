@@ -14,6 +14,7 @@ model User {
   password           String
   role               String             // DSW, HOD, FACULTY_INCHARGE, STUDENT
   status             String             @default("ACTIVE") // ACTIVE, INACTIVE
+  tokenVersion       Int                @default(0)
   department         String?
   branch             String?
   year               String?
@@ -25,6 +26,7 @@ model User {
   // Relationships
   clubsAsFaculty     Club[]             @relation("FacultyIncharge")
   coordinatedClubs   ClubCoordinator[]
+  coordinatorAssignmentsMade ClubCoordinator[] @relation("CoordinatorAssignedBy")
   joinedClubs        ClubMember[]
   eventApprovals     EventApproval[]
   eventRegistrations EventRegistration[]
@@ -33,6 +35,8 @@ model User {
   activityLogs       ActivityLog[]
   departmentsLed    Department[]       @relation("DepartmentHod")
   clubsAsHod        Club[]             @relation("ClubHod")
+  certificatesAsStudent CertificateRecord[] @relation("CertificateStudent")
+  certificatesSubmitted CertificateRecord[] @relation("CertificateSubmitter")
 }
 
 model Department {
@@ -66,16 +70,20 @@ model Club {
   coordinators       ClubCoordinator[]
   members            ClubMember[]
   events             Event[]
+  certificateRecords CertificateRecord[]
 }
 
 model ClubCoordinator {
   id        String   @id @default(uuid())
   clubId    String
   userId    String
+  facultyId String?
+  status    String   @default("ACTIVE")
   createdAt DateTime @default(now())
 
   club      Club     @relation(fields: [clubId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
+  faculty   User?    @relation("CoordinatorAssignedBy", fields: [facultyId], references: [id], onDelete: SetNull)
 
   @@unique([clubId, userId])
 }
@@ -122,6 +130,7 @@ model Event {
   registrations     EventRegistration[]
   attendances       Attendance[]
   documents         Document[]
+  certificateRecords CertificateRecord[]
 }
 
 model EventApproval {
@@ -191,4 +200,28 @@ model ActivityLog {
   createdAt DateTime @default(now())
 
   user      User     @relation(fields: [userId], references: [id])
+}
+
+model CertificateRecord {
+  id          String   @id @default(uuid())
+  batchId     String
+  studentId   String
+  submittedById String
+  eventId     String
+  clubId      String
+  department  String
+  position    String
+  status      String
+  payload     Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  student     User     @relation("CertificateStudent", fields: [studentId], references: [id], onDelete: Restrict)
+  submittedBy User     @relation("CertificateSubmitter", fields: [submittedById], references: [id], onDelete: Restrict)
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  club        Club     @relation(fields: [clubId], references: [id], onDelete: Restrict)
+
+  @@index([studentId])
+  @@index([submittedById])
+  @@index([clubId, status])
+  @@index([department, status])
 }

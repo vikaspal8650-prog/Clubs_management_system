@@ -45,7 +45,7 @@ export const FacultyDashboard = () => {
   const activeTab = searchParams.get('tab') || 'overview';
   const validTabs = ['overview', 'clubs', 'coordinators', 'proposals', 'students', 'certificates', 'attendance', 'documents'];
 
-  const userDepartment = user?.department || 'Computer Science';
+  const userDepartment = user?.department || user?.branch || '';
 
   const [loading, setLoading] = useState(true);
   const [assignedClubs, setAssignedClubs] = useState([]);
@@ -80,7 +80,7 @@ export const FacultyDashboard = () => {
       const [clubs, allEvents, deptStudents, attendance, certs] = await Promise.all([
         clubService.getClubsByFaculty(user.id),
         eventService.getEvents(),
-        userService.getDepartmentStudents(user),
+        userService.getDepartmentStudents(),
         eventService.getAttendance(),
         certificateService.getCertificates(),
       ]);
@@ -103,6 +103,7 @@ export const FacultyDashboard = () => {
       setCertificates(facultyCerts);
     } catch (err) {
       console.error('Failed to load Faculty data:', err);
+      setFeedbackMsg({ type: 'error', text: err.message || 'Faculty data could not be loaded. Check the API and database connection.' });
     } finally {
       setLoading(false);
     }
@@ -234,7 +235,7 @@ export const FacultyDashboard = () => {
 
   const handleDeleteStudent = async (studentId) => {
     try {
-      await userService.deleteStudent(studentId, user);
+      await userService.deleteStudent(studentId);
       setDeptStudents((prev) => prev.filter((s) => s.id !== studentId));
       setFeedbackMsg({ type: 'success', text: 'Student deleted successfully.' });
     } catch (err) {
@@ -687,7 +688,7 @@ export const FacultyDashboard = () => {
           {activeTab === 'students' && (
             <StudentDirectoryView
               students={deptStudents}
-              departmentName={userDepartment}
+              departmentName={userDepartment || 'Your Department'}
               isLoading={loading}
               allowDelete={true}
               onDeleteStudent={handleDeleteStudent}

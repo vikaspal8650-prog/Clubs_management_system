@@ -49,6 +49,7 @@ export const DswDashboard = () => {
   const validTabs = ['overview', 'users', 'staff', 'departments', 'clubs', 'events', 'reports', 'documents', 'analytics', 'activity', 'certificates'];
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [staffList, setStaffList] = useState([]);
   const [clubsList, setClubsList] = useState([]);
   const [eventsList, setEventsList] = useState([]);
@@ -61,12 +62,7 @@ export const DswDashboard = () => {
   const [departmentModalOpen, setDepartmentModalOpen] = useState(false);
   const [departmentToDelete, setDepartmentToDelete] = useState(null);
   const [departmentForm, setDepartmentForm] = useState({ name: '', code: '', hodName: '', hodEmail: '', description: '', status: 'ACTIVE' });
-  const [userStats, setUserStats] = useState({
-    totalHods: 0,
-    totalFaculty: 0,
-    totalStudents: 0,
-    totalUsers: 0,
-  });
+  const [userStats, setUserStats] = useState(null);
 
   // Search & Filters for User Management
   const [searchTerm, setSearchTerm] = useState('');
@@ -106,6 +102,7 @@ export const DswDashboard = () => {
 
   const loadData = async () => {
     setLoading(true);
+    setLoadError('');
     try {
       const [staff, clubs, events, stats, departments, certs] = await Promise.all([
         userService.getStaffAccounts(),
@@ -123,6 +120,7 @@ export const DswDashboard = () => {
       setCertificates(certs);
     } catch (err) {
       console.error('Failed to load DSW dataset:', err);
+      setLoadError(err.message || 'Dashboard data could not be loaded. Check the API and database connection, then retry.');
     } finally {
       setLoading(false);
     }
@@ -372,6 +370,14 @@ export const DswDashboard = () => {
         </div>
       )}
 
+      {loadError && (
+        <div className="dashboard-alert dashboard-alert--error" role="alert">
+          <AlertTriangle size={18} />
+          <span>{loadError}</span>
+          <Button variant="outline" onClick={loadData}>Retry</Button>
+        </div>
+      )}
+
       {/* Dynamic Statistics Metrics Row */}
       <div className="metrics-grid">
         <Card
@@ -389,7 +395,7 @@ export const DswDashboard = () => {
               <Building size={20} />
             </div>
           </div>
-          <span className="metric-card__value">{userStats.totalHods}</span>
+          <span className="metric-card__value">{userStats?.totalHods ?? '—'}</span>
           <span className="metric-card__hint">Department leadership (Click to view)</span>
         </Card>
 
@@ -408,7 +414,7 @@ export const DswDashboard = () => {
               <Users size={20} />
             </div>
           </div>
-          <span className="metric-card__value">{userStats.totalFaculty}</span>
+          <span className="metric-card__value">{userStats?.totalFaculty ?? '—'}</span>
           <span className="metric-card__hint">Club mentors (Click to view)</span>
         </Card>
 
@@ -427,7 +433,7 @@ export const DswDashboard = () => {
               <Users size={20} />
             </div>
           </div>
-          <span className="metric-card__value">{userStats.totalStudents}</span>
+          <span className="metric-card__value">{userStats?.totalStudents ?? '—'}</span>
           <span className="metric-card__hint">Registered students (Click to view)</span>
         </Card>
 
@@ -969,7 +975,7 @@ export const DswDashboard = () => {
                   : [
                       { label: 'College Clubs', value: clubsList.length, hint: 'Active institutional societies' },
                       { label: 'Events Tracked', value: eventsList.length, hint: 'Across all workflow stages' },
-                      { label: 'Registered Students', value: userStats.totalStudents, hint: 'Portal participants' },
+                      { label: 'Registered Students', value: userStats?.totalStudents ?? '—', hint: 'Portal participants' },
                     ]
               }
             />

@@ -1,5 +1,76 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../db');
+const jwt = require('jsonwebtoken');
+
+const createAttendanceSession = async (req, res) => {
+  try {
+    const { eventId } = req.body;
+    const event = await prisma.event.findUnique({ where: { id: eventId }, include: { club: true } });
+    if (!event || event.status !== 'APPROVED') return res.status(404).json({ error: 'Approved event not found.' });
+    if (req.user.role === 'FACULTY_INCHARGE' && event.club.facultyInchargeId !== req.user.id) return res.status(403).json({ error: 'You are not assigned to this event.' });
+    if (req.user.role === 'HOD') {
+      const hod = await prisma.user.findUnique({ where: { id: req.user.id }, select: { department: true } });
+      if (!hod?.department || hod.department !== event.club.department) return res.status(403).json({ error: 'You are not assigned to this department.' });
+    }
+    const sessionId = jwt.sign({ eventId: event.id, clubId: event.clubId, staffId: req.user.id, purpose: 'attendance' }, process.env.JWT_SECRET, { expiresIn: '2h' });
+    res.status(201).json({ id: sessionId, eventId: event.id, expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), event: { id: event.id, title: event.title }, club: { id: event.club.id, name: event.club.name } });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create attendance session.' });
+  }
+};
+
+const getAttendanceSession = async (req, res) => {
+  try {
+    const claims = jwt.verify(req.params.token, process.env.JWT_SECRET);
+    if (claims.purpose !== 'attendance') return res.status(400).json({ error: 'Invalid attendance session.' });
+    const event = await prisma.event.findUnique({ where: { id: claims.eventId }, include: { club: { select: { id: true, name: true } } } });
+    if (!event || event.status !== 'APPROVED') return res.status(404).json({ error: 'Approved event not found.' });
+    res.json({ id: req.params.token, event: { id: event.id, title: event.title }, club: event.club, expiresAt: new Date(claims.exp * 1000).toISOString() });
+  } catch (err) {
+    res.status(401).json({ error: 'Attendance session is invalid or expired.' });
+  }
+};
+
+const markAttendanceFromSession = async (req, res) => {
+  try {
+    const claims = jwt.verify(req.params.token, process.env.JWT_SECRET);
+    if (claims.purpose !== 'attendance') return res.status(400).json({ error: 'Invalid attendance session.' });
+    const student = await prisma.user.findUnique({ where: { id: req.user.id }, select: { id: true, role: true } });
+    if (student?.role !== 'STUDENT') return res.status(403).json({ error: 'Only students can record attendance.' });
+    const registration = await prisma.eventRegistration.findUnique({ where: { eventId_userId: { eventId: claims.eventId, userId: student.id } } });
+    if (!registration) return res.status(403).json({ error: 'Register for the event before checking in.' });
+    const attendance = await prisma.attendance.create({ data: { eventId: claims.eventId, userId: student.id, status: 'PRESENT' } });
+    res.status(201).json({ record: attendance });
+  } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Attendance has already been recorded for this event.' });
+    if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') return res.status(401).json({ error: 'Attendance session is invalid or expired.' });
+    res.status(500).json({ error: 'Failed to record attendance.' });
+  }
+};
+
+/**
+ * Map a raw Prisma event to the shape the frontend expects.
+ * Frontend uses: startDate, clubName, department, registrationDeadline, submittedById, submittedAt
+ */
+const formatEvent = (event, registeredIds = null) => {
+  const base = {
+    ...event,
+    // Alias 'date' → 'startDate' so the frontend date columns render correctly
+    startDate: event.date,
+    // Flatten club name and department for easy table access
+    clubName: event.club ? event.club.name : '',
+    department: event.club ? event.club.department : '',
+    // registrationDeadline: use the event date as a sensible fallback if not stored separately
+    registrationDeadline: event.registrationDeadline || event.date,
+    // Map coordinatorId → submittedById so coordinator proposal tracking works
+    submittedById: event.coordinatorId || null,
+    // Use createdAt as submittedAt
+    submittedAt: event.createdAt,
+  };
+  if (registeredIds !== null) {
+    base.registered = registeredIds.has(event.id);
+  }
+  return base;
+};
 
 // Get all events (can be filtered by club, status)
 const getEvents = async (req, res) => {
@@ -8,6 +79,18 @@ const getEvents = async (req, res) => {
     const where = {};
     if (clubId) where.clubId = clubId;
     if (status) where.status = status;
+    if (req.user.role === 'STUDENT') {
+      where.OR = [
+        { status: 'APPROVED' },
+        { coordinatorId: req.user.id },
+        { registrations: { some: { userId: req.user.id } } },
+      ];
+    } else if (req.user.role === 'FACULTY_INCHARGE') {
+      where.club = { facultyInchargeId: req.user.id };
+    } else if (req.user.role === 'HOD') {
+      const hod = await prisma.user.findUnique({ where: { id: req.user.id }, select: { department: true } });
+      where.club = { department: hod?.department || '__none__' };
+    }
 
     const events = await prisma.event.findMany({
       where,
@@ -18,7 +101,14 @@ const getEvents = async (req, res) => {
         _count: { select: { registrations: true, attendances: true } }
       }
     });
-    res.json(events);
+
+    if (req.user.role === 'STUDENT') {
+      const registrations = await prisma.eventRegistration.findMany({ where: { userId: req.user.id }, select: { eventId: true } });
+      const registeredIds = new Set(registrations.map((registration) => registration.eventId));
+      return res.json(events.map((event) => formatEvent(event, registeredIds)));
+    }
+
+    res.json(events.map((event) => formatEvent(event)));
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch events', details: err.message });
   }
@@ -31,7 +121,9 @@ const createEvent = async (req, res) => {
     if (!title || !description || !date || !startTime || !endTime || !venue || !capacity || !clubId) {
       return res.status(400).json({ error: 'All event fields are required' });
     }
-    if (Number(capacity) < 1 || Number.isNaN(Number(capacity))) return res.status(400).json({ error: 'Capacity must be a positive number' });
+    if (!Number.isInteger(Number(capacity)) || Number(capacity) < 1) return res.status(400).json({ error: 'Capacity must be a positive whole number' });
+    const eventDate = new Date(date);
+    if (Number.isNaN(eventDate.getTime())) return res.status(400).json({ error: 'Enter a valid event date.' });
     
     // Verify user is coordinator
     const isCoordinator = await prisma.clubCoordinator.findFirst({
@@ -41,7 +133,7 @@ const createEvent = async (req, res) => {
 
     const event = await prisma.event.create({
       data: {
-        title, description, date: new Date(date), startTime, endTime, venue, capacity: parseInt(capacity),
+        title, description, date: eventDate, startTime, endTime, venue, capacity: Number(capacity),
         status: 'PENDING_FACULTY',
         clubId, objective: objective || null, additionalDetails: additionalDetails || null, coordinatorId: req.user.id,
       }
@@ -52,9 +144,9 @@ const createEvent = async (req, res) => {
     await prisma.activityLog.create({ data: { userId: req.user.id, action: 'Student proposed event', details: event.title } });
     const eventWithDocuments = await prisma.event.findUnique({
       where: { id: event.id },
-      include: { documents: true },
+      include: { documents: true, club: { select: { id: true, name: true, department: true } } },
     });
-    res.status(201).json(eventWithDocuments);
+    res.status(201).json(formatEvent(eventWithDocuments));
   } catch (err) {
     res.status(500).json({ error: 'Failed to create event', details: err.message });
   }
@@ -92,9 +184,8 @@ const processEventApproval = async (req, res) => {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
-    const updatedEvent = await prisma.event.update({
-      where: { id },
-      data: {
+    const updatedEvent = await prisma.$transaction(async (tx) => {
+      const changed = await tx.event.updateMany({ where: { id, status: event.status }, data: {
         status: nextStatus,
         rejectionReason: action === 'REJECT' ? reason : null,
         facultyDecision: role === 'FACULTY_INCHARGE' ? action : undefined,
@@ -102,26 +193,20 @@ const processEventApproval = async (req, res) => {
         hodDecision: role === 'HOD' ? action : undefined,
         hodDecisionAt: role === 'HOD' ? new Date() : undefined,
         officiallyDeclared: role === 'HOD' && action === 'APPROVE',
-      }
-    });
-
-    await prisma.eventApproval.create({
-      data: {
-        eventId: id,
-        userId: req.user.id,
-        status: action === 'APPROVE' ? 'APPROVED' : 'REJECTED',
-        reason: reason || null,
-        role
-      }
+      } });
+      if (changed.count !== 1) throw Object.assign(new Error('Event approval was already processed.'), { code: 'STALE_EVENT' });
+      await tx.eventApproval.create({ data: { eventId: id, userId: req.user.id, status: action === 'APPROVE' ? 'APPROVED' : 'REJECTED', reason: reason || null, role } });
+      return tx.event.findUnique({ where: { id }, include: { club: { select: { id: true, name: true, department: true } } } });
     });
 
     const recipients = [event.coordinatorId, role === 'FACULTY_INCHARGE' ? null : event.club.facultyInchargeId].filter(Boolean);
     await Promise.all(recipients.map((userId) => prisma.notification.create({ data: { userId, message: `${event.title}: ${role} ${action.toLowerCase()}d the proposal${reason ? ` — ${reason}` : ''}.` } })));
     await prisma.activityLog.create({ data: { userId: req.user.id, action: `${role} ${action.toLowerCase()}d event`, details: event.title } });
 
-    res.json({ ...updatedEvent, documents: event.documents });
+    res.json({ ...formatEvent(updatedEvent), documents: event.documents });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to process approval', details: err.message });
+    if (err.code === 'STALE_EVENT') return res.status(409).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to process approval.' });
   }
 };
 
@@ -143,21 +228,26 @@ const markAttendance = async (req, res) => {
   try {
     const event = await prisma.event.findUnique({ where: { id: req.params.id } });
     if (!event || event.status !== 'APPROVED') return res.status(404).json({ error: 'Approved event not found' });
-    const registration = await prisma.eventRegistration.findUnique({ where: { eventId_userId: { eventId: event.id, userId: req.user.id } } });
-    if (!registration) return res.status(400).json({ error: 'Register for this event before marking attendance' });
-    const attendance = await prisma.attendance.upsert({
-      where: { eventId_userId: { eventId: event.id, userId: req.user.id } },
-      update: { status: 'PRESENT', markedAt: new Date() },
-      create: { eventId: event.id, userId: req.user.id, status: 'PRESENT' },
-    });
-    res.json(attendance);
+    return res.status(403).json({ error: 'Attendance must be recorded by an authorized event staff member.' });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to mark attendance', details: err.message });
+    res.status(500).json({ error: 'Failed to mark attendance.' });
   }
 };
 
 const getAttendance = async (req, res) => {
   try {
+    if (req.user.role !== 'STUDENT') {
+      const { eventId } = req.query;
+      const eventScope = req.user.role === 'FACULTY_INCHARGE'
+        ? { club: { facultyInchargeId: req.user.id } }
+        : req.user.role === 'HOD'
+          ? { club: { department: (await prisma.user.findUnique({ where: { id: req.user.id }, select: { department: true } }))?.department || '__none__' } }
+          : {};
+      const where = { event: eventScope };
+      if (eventId) where.eventId = eventId;
+      const records = await prisma.attendance.findMany({ where, include: { user: { select: { id: true, name: true, email: true, rollNumber: true, department: true, branch: true } }, event: { include: { club: { select: { id: true, name: true } } } } }, orderBy: { markedAt: 'desc' } });
+      return res.json(records);
+    }
     const attendance = await prisma.attendance.findMany({
       where: { userId: req.user.id },
       include: { event: { include: { club: { select: { id: true, name: true } } } } },
@@ -169,4 +259,4 @@ const getAttendance = async (req, res) => {
   }
 };
 
-module.exports = { getEvents, createEvent, processEventApproval, registerForEvent, markAttendance, getAttendance };
+module.exports = { getEvents, createEvent, processEventApproval, registerForEvent, markAttendance, getAttendance, createAttendanceSession, getAttendanceSession, markAttendanceFromSession };

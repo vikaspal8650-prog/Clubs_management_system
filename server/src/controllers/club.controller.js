@@ -1,5 +1,4 @@
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../db');
 
 // Get all clubs
 const getClubs = async (req, res) => {
@@ -7,8 +6,8 @@ const getClubs = async (req, res) => {
     const clubs = await prisma.club.findMany({
       include: {
         facultyIncharge: { select: { id: true, name: true, email: true } },
-        coordinators: { include: { user: { select: { id: true, name: true, email: true } } } },
-        members: { include: { user: { select: { id: true, name: true, email: true } } } }
+        coordinators: { where: { status: 'ACTIVE' }, include: { user: { select: { id: true, name: true } } } },
+        members: { include: { user: { select: { id: true, name: true } } } }
       }
     });
 
@@ -20,12 +19,9 @@ const getClubs = async (req, res) => {
       category: 'Technical',
       facultyInchargeId: c.facultyInchargeId,
       facultyInchargeName: c.facultyIncharge ? c.facultyIncharge.name : 'Unassigned',
-      coordinators: c.coordinators.map(coord => ({
-        id: coord.user.id,
-        name: coord.user.name,
-        email: coord.user.email
-      })),
-      members: c.members.map(m => m.user),
+      coordinators: c.coordinators.map(coord => ({ id: coord.user.id, name: coord.user.name })),
+      // Always return members so all roles (including STUDENT) can determine join status.
+      members: c.members.map(m => ({ id: m.user.id, name: m.user.name })),
       memberCount: c.members.length,
       activeEventsCount: 0,
       createdAt: c.createdAt,
@@ -46,8 +42,8 @@ const getClubById = async (req, res) => {
       where: { id },
       include: {
         facultyIncharge: { select: { id: true, name: true, email: true } },
-        coordinators: { include: { user: { select: { id: true, name: true, email: true } } } },
-        members: { include: { user: { select: { id: true, name: true, email: true } } } }
+        coordinators: { where: { status: 'ACTIVE' }, include: { user: { select: { id: true, name: true } } } },
+        members: { include: { user: { select: { id: true, name: true } } } }
       }
     });
     if (!c) return res.status(404).json({ error: 'Club not found' });
@@ -60,12 +56,9 @@ const getClubById = async (req, res) => {
       category: 'Technical',
       facultyInchargeId: c.facultyInchargeId,
       facultyInchargeName: c.facultyIncharge ? c.facultyIncharge.name : 'Unassigned',
-      coordinators: c.coordinators.map(coord => ({
-        id: coord.user.id,
-        name: coord.user.name,
-        email: coord.user.email
-      })),
-      members: c.members.map(m => m.user),
+      coordinators: c.coordinators.map(coord => ({ id: coord.user.id, name: coord.user.name })),
+      // Always return members so all roles (including STUDENT) can determine join status.
+      members: c.members.map(m => ({ id: m.user.id, name: m.user.name })),
       memberCount: c.members.length,
       activeEventsCount: 0,
       createdAt: c.createdAt,
@@ -103,7 +96,6 @@ const saveClub = async (req, res) => {
       if (!existing) {
         return res.status(404).json({ error: 'Club record not found.' });
       }
-
       club = await prisma.club.update({
         where: { id: targetId },
         data: {
@@ -190,14 +182,24 @@ const joinClub = async (req, res) => {
       return res.status(403).json({ error: 'Only students can join clubs' });
     }
 
-    const membership = await prisma.clubMember.create({
-      data: { clubId: id, userId }
+    // Check if the club exists
+    const club = await prisma.club.findUnique({ where: { id } });
+    if (!club) {
+      return res.status(404).json({ error: 'Club not found' });
+    }
+
+    // Use upsert to safely handle duplicate joins
+    const membership = await prisma.clubMember.upsert({
+      where: { clubId_userId: { clubId: id, userId } },
+      update: {},
+      create: { clubId: id, userId },
     });
     res.status(201).json(membership);
   } catch (err) {
     if (err.code === 'P2002') {
       return res.status(400).json({ error: 'You are already a member of this club' });
     }
+    console.error('[JOIN_CLUB] Error:', err);
     res.status(500).json({ error: 'Failed to join club', details: err.message });
   }
 };
@@ -214,14 +216,24 @@ const appointCoordinator = async (req, res) => {
     if (req.user.role !== 'FACULTY_INCHARGE' && req.user.role !== 'DSW') {
       return res.status(403).json({ error: 'Not authorized to manage this club' });
     }
+    if (req.user.role === 'FACULTY_INCHARGE' && club.facultyInchargeId !== req.user.id) {
+      return res.status(403).json({ error: 'You can only manage coordinators for clubs assigned to you.' });
+    }
 
     const student = await prisma.user.findUnique({ where: { id: studentId } });
     if (!student || student.role !== 'STUDENT') {
       return res.status(400).json({ error: 'Invalid student ID' });
     }
 
-    const coord = await prisma.clubCoordinator.create({
-      data: { clubId: id, userId: studentId }
+    const coord = await prisma.clubCoordinator.upsert({
+      where: { clubId_userId: { clubId: id, userId: studentId } },
+      update: { facultyId: req.user.id, status: 'ACTIVE' },
+      create: { clubId: id, userId: studentId, facultyId: req.user.id, status: 'ACTIVE' }
+    });
+    await prisma.clubMember.upsert({
+      where: { clubId_userId: { clubId: id, userId: studentId } },
+      update: {},
+      create: { clubId: id, userId: studentId },
     });
     res.status(201).json(coord);
   } catch (err) {
@@ -238,7 +250,9 @@ const removeCoordinator = async (req, res) => {
     const club = await prisma.club.findUnique({ where: { id: clubId } });
     if (!club) return res.status(404).json({ error: 'Club not found.' });
     if (req.user.role !== 'DSW' && !(req.user.role === 'FACULTY_INCHARGE' && club.facultyInchargeId === req.user.id)) return res.status(403).json({ error: 'Not authorized to manage this club.' });
-    await prisma.clubCoordinator.delete({ where: { clubId_userId: { clubId, userId: studentId } } });
+    const assignment = await prisma.clubCoordinator.findUnique({ where: { clubId_userId: { clubId, userId: studentId } } });
+    if (!assignment || assignment.status !== 'ACTIVE') return res.status(404).json({ error: 'Active coordinator assignment not found.' });
+    await prisma.clubCoordinator.update({ where: { id: assignment.id }, data: { status: 'INACTIVE' } });
     res.json({ message: 'Coordinator removed successfully.' });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Coordinator assignment not found.' });

@@ -23,3 +23,35 @@
   padding-top: 1rem;
   border-top: 1px solid var(--border-color, #e2e8f0);
 }
+
+.coordinator-profile {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 0.75rem;
+  background: var(--surface-muted, #f8fafc);
+}
+
+.coordinator-profile h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.coordinator-profile__assignment {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+.coordinator-profile__assignment > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.coordinator-profile__assignment span {
+  color: var(--text-muted, #64748b);
+  font-size: 0.75rem;
+}

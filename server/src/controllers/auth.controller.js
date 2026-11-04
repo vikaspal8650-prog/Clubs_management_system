@@ -1,9 +1,8 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../db');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_change_me';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const VALID_SEMESTERS_BY_YEAR = {
   '1st Year': ['Semester 1', 'Semester 2'],
@@ -41,19 +40,15 @@ const setAuthCookies = (res, token) => {
     httpOnly: true,
     secure: isProd,
     sameSite: 'lax',
-    maxAge: 24 * 60 * 60 * 1000, // 1 day
-  });
-  res.cookie('refreshToken', token, {
-    httpOnly: true,
-    secure: isProd,
-    sameSite: 'lax',
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: '/',
+    maxAge: 24 * 60 * 60 * 1000,
   });
 };
 
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    if (typeof email !== 'string' || typeof password !== 'string') return res.status(400).json({ error: 'Email and password are required.' });
     if (!email || !email.trim()) return res.status(400).json({ error: 'Please enter your college email address.' });
     if (!password || !password.trim()) return res.status(400).json({ error: 'Please enter your password.' });
 
@@ -72,12 +67,8 @@ const login = async (req, res) => {
       isValid = false;
     }
 
-    // Check legacy plain text password migration & DSW password alias fallback
-    if (
-      !isValid &&
-      (password === user.password ||
-        (cleanEmail === 'saurabhsrmscet123@gmail.com' && (password === 'saurabh@123' || password === 'password123')))
-    ) {
+    // Migrate legacy plaintext passwords once, without account-specific aliases.
+    if (!isValid && password === user.password) {
       isValid = true;
       try {
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -97,20 +88,24 @@ const login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
+      { id: user.id, email: user.email, role: user.role, tokenVersion: user.tokenVersion },
       JWT_SECRET,
       { expiresIn: '1d' }
     );
 
     setAuthCookies(res, token);
 
+    const assignments = await prisma.clubCoordinator.findMany({ where: { userId: user.id, status: 'ACTIVE' }, include: { club: { select: { id: true, name: true } }, faculty: { select: { id: true, name: true } } } });
     const userObj = { ...user };
     delete userObj.password;
+    delete userObj.tokenVersion;
+    userObj.coordinatorAssignments = assignments.map(({ clubId, status, facultyId, club, faculty }) => ({ clubId, status, facultyId, clubName: club.name, facultyName: faculty?.name || 'Unassigned' }));
+    userObj.coordinatorOfClubs = userObj.coordinatorAssignments.map((assignment) => assignment.clubId);
 
-    res.json({ user: userObj, token, message: legacyMigrationDone ? 'Login successful. Password updated securely.' : 'Login successful.' });
+    res.json({ user: userObj, message: legacyMigrationDone ? 'Login successful. Password updated securely.' : 'Login successful.' });
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ error: 'Login failed', details: err.message });
+    res.status(500).json({ error: 'Login failed.' });
   }
 };
 
@@ -118,8 +113,9 @@ const register = async (req, res) => {
   try {
     const { name, email, rollNumber, branch, year, semester, password } = req.body;
 
-    if (!name || !name.trim()) return res.status(400).json({ error: 'Full Name is required.' });
-    if (!email || !email.trim()) return res.status(400).json({ error: 'College Email is required.' });
+    if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'Full Name is required.' });
+    if (typeof email !== 'string' || !email.trim()) return res.status(400).json({ error: 'College Email is required.' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return res.status(400).json({ error: 'Please enter a valid email address.' });
     if (!branch || !branch.trim()) return res.status(400).json({ error: 'Academic Branch is required.' });
     if (!year || !year.trim()) return res.status(400).json({ error: 'Academic Year is required.' });
     if (!semester || !semester.trim()) return res.status(400).json({ error: 'Current Semester is required.' });
@@ -169,27 +165,28 @@ const register = async (req, res) => {
       }
     });
 
-    const token = jwt.sign(
-      { id: newUser.id, email: newUser.email, role: newUser.role },
-      JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-
-    setAuthCookies(res, token);
-
     const userObj = { ...newUser };
     delete userObj.password;
 
-    res.status(201).json({ user: userObj, token, message: 'Student registered successfully.' });
+    res.status(201).json({ user: userObj, message: 'Student registered successfully. Please log in.' });
   } catch (err) {
     console.error('Registration error:', err);
-    res.status(500).json({ error: 'Registration failed', details: err.message });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Email or roll number is already registered.' });
+    res.status(500).json({ error: 'Registration failed.' });
   }
 };
 
 const logout = async (req, res) => {
-  res.clearCookie('accessToken');
-  res.clearCookie('refreshToken');
+  if (req.user?.id) {
+    try {
+      await prisma.user.update({ where: { id: req.user.id }, data: { tokenVersion: { increment: 1 } } });
+    } catch (err) {
+      console.error('Logout token invalidation failed:', err.message);
+      return res.status(503).json({ error: 'Could not safely invalidate this session. Please retry logout.' });
+    }
+  }
+  const cookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/' };
+  res.clearCookie('accessToken', cookieOptions);
   res.json({ message: 'Logged out successfully' });
 };
 
@@ -200,37 +197,16 @@ const me = async (req, res) => {
     
     const userObj = { ...user };
     delete userObj.password;
+    delete userObj.tokenVersion;
+    if (user.role === 'STUDENT') {
+      const assignments = await prisma.clubCoordinator.findMany({ where: { userId: user.id, status: 'ACTIVE' }, include: { club: { select: { id: true, name: true } }, faculty: { select: { id: true, name: true } } } });
+      userObj.coordinatorAssignments = assignments.map(({ clubId, status, facultyId, club, faculty }) => ({ clubId, status, facultyId, clubName: club.name, facultyName: faculty?.name || 'Unassigned' }));
+      userObj.coordinatorOfClubs = userObj.coordinatorAssignments.map((assignment) => assignment.clubId);
+    }
     res.json(userObj);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch user', details: err.message });
+    res.status(500).json({ error: 'Failed to fetch user.' });
   }
 };
 
-const switchRoleDemo = async (req, res) => {
-  try {
-    const { role } = req.body;
-    let user = await prisma.user.findFirst({
-      where: { role, status: 'ACTIVE' },
-    });
-    if (!user) {
-      user = await prisma.user.findFirst({ where: { role } });
-    }
-    if (!user) return res.status(404).json({ error: `No account found for role ${role}` });
-
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '1d' }
-    );
-
-    setAuthCookies(res, token);
-
-    const userObj = { ...user };
-    delete userObj.password;
-    res.json({ user: userObj, token });
-  } catch (err) {
-    res.status(500).json({ error: 'Switch role failed', details: err.message });
-  }
-};
-
-module.exports = { login, register, logout, me, switchRoleDemo, validatePassword, validateRollNumber };
+module.exports = { login, register, logout, me, validatePassword, validateRollNumber };

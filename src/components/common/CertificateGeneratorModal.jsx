@@ -19,9 +19,7 @@ import { CertificateView } from './CertificateView';
 import { certificateService } from '../../services/certificateService';
 import { eventService } from '../../services/eventService';
 import { clubService } from '../../services/clubService';
-import { userService } from '../../services/userService';
 import { useAuth } from '../../hooks/useAuth';
-import { getFromStorage, STORAGE_KEYS } from '../../services/api';
 import './CertificateGeneratorModal.css';
 
 export const CertificateGeneratorModal = ({ isOpen, onClose, onSuccess }) => {
@@ -60,30 +58,7 @@ export const CertificateGeneratorModal = ({ isOpen, onClose, onSuccess }) => {
   const isStudentParticipant = (student, eventId) => {
     if (!student || !eventId) return false;
 
-    // 1. Check student's registeredEventIds array
-    if (Array.isArray(student.registeredEventIds) && student.registeredEventIds.includes(eventId)) {
-      return true;
-    }
-
-    // 2. Check storage for updated user object
-    const storedUsers = getFromStorage(STORAGE_KEYS.USERS) || [];
-    const freshUser = storedUsers.find(
-      (u) => u.id === student.id || (u.email && u.email.toLowerCase() === student.email?.toLowerCase())
-    );
-    if (freshUser && Array.isArray(freshUser.registeredEventIds) && freshUser.registeredEventIds.includes(eventId)) {
-      return true;
-    }
-
-    // 3. Check attendance records in storage
-    const attendanceRecords = getFromStorage(STORAGE_KEYS.ATTENDANCE) || [];
-    const hasAttendance = attendanceRecords.some(
-      (record) =>
-        record.eventId === eventId &&
-        (record.studentId === student.id || (record.studentEmail && record.studentEmail.toLowerCase() === student.email?.toLowerCase()))
-    );
-    if (hasAttendance) return true;
-
-    return false;
+    return Boolean(student.attendanceEventIds?.includes(eventId));
   };
 
   // Load initial data for Coordinator
@@ -96,7 +71,8 @@ export const CertificateGeneratorModal = ({ isOpen, onClose, onSuccess }) => {
       try {
         const allClubs = await clubService.getClubs();
         const allEvents = await eventService.getEvents();
-        const allUsers = await userService.getAllUsers();
+        const allUsers = await userService.getDepartmentStudents();
+        const attendance = await eventService.getAttendance(selectedEventId || undefined);
 
         // Filter clubs where current user is a coordinator or assigned faculty
         const userClubs = allClubs.filter(
@@ -124,7 +100,9 @@ export const CertificateGeneratorModal = ({ isOpen, onClose, onSuccess }) => {
         }
 
         // Students list
-        const studentsList = allUsers.filter((u) => u.role === 'STUDENT' && u.status === 'ACTIVE');
+        const studentsList = allUsers
+          .filter((student) => student.role === 'STUDENT' && student.status === 'ACTIVE')
+          .map((student) => ({ ...student, attendanceEventIds: attendance.filter((record) => record.userId === student.id).map((record) => record.eventId) }));
         setAvailableStudents(studentsList);
       } catch (err) {
         console.error('Failed to load certificate form data:', err);
@@ -135,7 +113,7 @@ export const CertificateGeneratorModal = ({ isOpen, onClose, onSuccess }) => {
     };
 
     loadData();
-  }, [isOpen, user]);
+  }, [isOpen, user, selectedEventId]);
 
   // When selected club changes, update available events
   const handleClubChange = (clubId) => {

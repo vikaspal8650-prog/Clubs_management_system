@@ -15,8 +15,8 @@ export const eventService = {
     return api.get(`/events?clubId=${encodeURIComponent(clubId)}`);
   },
 
-  async getAttendance() {
-    return api.get('/events/me/attendance');
+  async getAttendance(eventId) {
+    return api.get(`/events/me/attendance${eventId ? `?eventId=${encodeURIComponent(eventId)}` : ''}`);
   },
 
   /**
@@ -57,7 +57,7 @@ export const eventService = {
       throw new Error('Complete all required event proposal fields.');
     }
 
-    return api.post('/events', {
+    const payload = {
       title: title.trim(),
       description: description.trim(),
       objective: objective.trim(),
@@ -68,7 +68,14 @@ export const eventService = {
       venue: venue.trim(),
       capacity: Number(maxParticipants),
       clubId: club.id,
-    });
+    };
+    if (proposal.supportingDocument?.file instanceof File) {
+      const formData = new FormData();
+      Object.entries(payload).forEach(([key, value]) => formData.append(key, String(value)));
+      formData.append('supportingDocument', proposal.supportingDocument.file);
+      return api.post('/events', formData);
+    }
+    return api.post('/events', payload);
   },
 
   /**
@@ -106,5 +113,7 @@ export const eventService = {
     return api.post(`/events/${eventId}/approval`, { action: 'REJECT', reason });
   },
 
-  async markAttendance(eventId) { return api.post(`/events/${eventId}/attendance`); },
+  async createAttendanceSession(eventId) { return api.post('/events/attendance/sessions', { eventId }); },
+  async getAttendanceSession(sessionId) { return api.get(`/events/attendance/sessions/${encodeURIComponent(sessionId)}`); },
+  async markAttendanceFromSession(sessionId, _studentDetails) { return api.post(`/events/attendance/sessions/${encodeURIComponent(sessionId)}/check-in`, {}); },
 };

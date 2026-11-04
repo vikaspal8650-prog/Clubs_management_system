@@ -1,6 +1,7 @@
-import api, { saveToStorage, STORAGE_KEYS } from './api.js';
+import api from './api.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isStrongPassword = (password) => password?.length >= 8 && /[a-z]/.test(password) && /[0-9]/.test(password) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(password);
 
 export const userService = {
   /**
@@ -39,7 +40,7 @@ export const userService = {
     if (!EMAIL_REGEX.test(cleanEmail)) throw new Error('Please enter a valid email address.');
     if (!department || !department.trim()) throw new Error('Department is required.');
     if (!password) throw new Error('Password is required.');
-    if (password.length < 6) throw new Error('Password must be at least 6 characters long.');
+    if (!isStrongPassword(password)) throw new Error('Password must be at least 8 characters and include a lowercase letter, number, and special symbol.');
 
     return api.post('/users/hod', {
       name: name.trim(),
@@ -60,7 +61,7 @@ export const userService = {
     if (!EMAIL_REGEX.test(cleanEmail)) throw new Error('Please enter a valid email address.');
     if (!department || !department.trim()) throw new Error('Department is required.');
     if (!password) throw new Error('Password is required.');
-    if (password.length < 6) throw new Error('Password must be at least 6 characters long.');
+    if (!isStrongPassword(password)) throw new Error('Password must be at least 8 characters and include a lowercase letter, number, and special symbol.');
 
     return api.post('/users/faculty', {
       name: name.trim(),
@@ -90,8 +91,7 @@ export const userService = {
    * Get all registered students from PostgreSQL
    */
   async getStudents() {
-    const users = await this.getAllUsers();
-    return users.filter((u) => u.role === 'STUDENT');
+    return this.getDepartmentStudents();
   },
 
   /**
@@ -134,10 +134,6 @@ export const userService = {
       year: year ? year.trim() : undefined,
       semester: semester ? semester.trim() : undefined,
     });
-
-    if (result && result.user && authenticatedUser) {
-      saveToStorage(STORAGE_KEYS.CURRENT_USER, { ...authenticatedUser, ...result.user });
-    }
 
     return result.user || result;
   },

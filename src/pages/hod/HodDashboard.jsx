@@ -84,6 +84,7 @@ export const HodDashboard = () => {
       setCertificates(certs);
     } catch (err) {
       console.error('Failed to load HOD data:', err);
+      setFeedbackMsg({ type: 'error', text: err.message || 'Department data could not be loaded. Check the API and database connection.' });
     } finally {
       setLoading(false);
     }

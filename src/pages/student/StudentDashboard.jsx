@@ -23,7 +23,6 @@ import { useAuth } from '../../hooks/useAuth';
 import { EVENT_STATUS, EVENT_STATUS_LABELS, EVENT_STATUS_VARIANTS } from '../../constants/eventStatus';
 import { clubService } from '../../services/clubService';
 import { eventService } from '../../services/eventService';
-import { userService } from '../../services/userService';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
@@ -68,11 +67,10 @@ export const StudentDashboard = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [clubs, events, users, attendance, certs] = await Promise.all([
+      const [clubs, events, attendance, certs] = await Promise.all([
         clubService.getClubs(),
         eventService.getEvents(),
-        userService.getAllUsers(),
-        eventService.getAttendance(user?.id),
+        eventService.getAttendance(),
         certificateService.getCertificates(),
       ]);
       setAllClubs(clubs);
@@ -89,13 +87,11 @@ export const StudentDashboard = () => {
         certs.filter((c) => c.submittedBy?.id === user?.id || c.submittedBy?.email === user?.email)
       );
 
-      const latestUser = users.find((candidate) => candidate.id === user?.id);
-      if (latestUser) {
-        setJoinedClubIds(latestUser.joinedClubs || latestUser.clubIds || []);
-        setRegisteredEventIds(latestUser.registeredEventIds || []);
-      }
+      setJoinedClubIds(clubs.filter((club) => club.members?.some((member) => member.id === user?.id)).map((club) => club.id));
+      setRegisteredEventIds(events.filter((event) => event.registered).map((event) => event.id));
     } catch (err) {
       console.error('Failed to load student portal data:', err);
+      setFeedbackMsg({ type: 'error', text: err.message || 'Student data could not be loaded. Check the API and database connection.' });
     } finally {
       setLoading(false);
     }
@@ -121,7 +117,7 @@ export const StudentDashboard = () => {
       setFeedbackMsg({ type: 'success', text: `You have successfully joined ${clubName}!` });
       loadData();
     } catch (err) {
-      setFeedbackMsg({ type: 'error', text: 'Could not join club at this time.' });
+      setFeedbackMsg({ type: 'error', text: err.message || 'Could not join club at this time.' });
     }
   };
 
@@ -150,18 +146,6 @@ export const StudentDashboard = () => {
     }
   };
 
-  const handleMarkAttendance = async () => {
-    try {
-      await eventService.markAttendance(attendanceEventId, user.id);
-      setAttendanceEventId('');
-      setQrModalOpen(false);
-      setFeedbackMsg({ type: 'success', text: 'Attendance recorded successfully.' });
-      loadData();
-    } catch (err) {
-      setFeedbackMsg({ type: 'error', text: err.message || 'Could not record attendance.' });
-    }
-  };
-
   const myClubs = allClubs.filter((c) => joinedClubIds.includes(c.id));
   const publishedEvents = allEvents.filter((e) => e.status === EVENT_STATUS.APPROVED && joinedClubIds.includes(e.clubId));
   const coordinatorProposals = allEvents.filter((event) => event.submittedById === user?.id);
@@ -169,9 +153,7 @@ export const StudentDashboard = () => {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!['application/pdf', 'image/png', 'image/jpeg'].includes(file.type) || file.size > 2 * 1024 * 1024) { setFeedbackMsg({ type: 'error', text: 'Upload a PDF, PNG, or JPG file smaller than 2 MB.' }); event.target.value = ''; return; }
-    const reader = new FileReader();
-    reader.onload = () => setProposalForm((form) => ({ ...form, supportingDocument: { name: file.name, type: file.type, size: file.size, dataUrl: reader.result } }));
-    reader.readAsDataURL(file);
+    setProposalForm((form) => ({ ...form, supportingDocument: { name: file.name, type: file.type, size: file.size, file } }));
   };
   const attendanceRate = registeredEventIds.length ? Math.round((attendanceRecords.length / registeredEventIds.length) * 100) : 0;
   const selectedAttendanceEvent = allEvents.find((event) => event.id === attendanceEventId);
@@ -217,13 +199,6 @@ export const StudentDashboard = () => {
             onClick={() => handleTabChange('profile')}
           >
             My Profile
-          </Button>
-          <Button
-            variant="outline"
-            icon={QrCode}
-            onClick={() => setQrModalOpen(true)}
-          >
-            Scan Attendance QR
           </Button>
           {isCoordinator && (
             <Button
@@ -911,14 +886,9 @@ export const StudentDashboard = () => {
       <Modal
         isOpen={qrModalOpen}
         onClose={() => setQrModalOpen(false)}
-        title="Event Attendance QR Scanner"
-        description="Choose a registered event to record your verified attendance."
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setQrModalOpen(false)}>Cancel</Button>
-            <Button variant="primary" onClick={handleMarkAttendance} disabled={!attendanceEventId}>Record Attendance</Button>
-          </>
-        }
+        title="Event Attendance QR"
+        description="Show this event QR to the authorized attendance desk. Attendance is recorded by event staff."
+        footer={<Button variant="outline" onClick={() => setQrModalOpen(false)}>Close</Button>}
       >
         <div className="attendance-checkin-panel">
           <div className="form-group">

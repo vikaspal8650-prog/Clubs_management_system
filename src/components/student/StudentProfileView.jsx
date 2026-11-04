@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { User, Mail, GraduationCap, Save, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { userService } from '../../services/userService';
+import { authService } from '../../services/authService';
 import { departmentService } from '../../services/departmentService';
 import { DEPARTMENTS, ACADEMIC_YEARS, SEMESTERS_BY_YEAR } from '../../constants/departments';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../common/Card';
+import { Badge } from '../common/Badge';
 import { Input } from '../common/Input';
 import { Select } from '../common/Select';
 import { Button } from '../common/Button';
@@ -12,6 +14,19 @@ import './StudentProfileView.css';
 
 export const StudentProfileView = () => {
   const { user, updateUserProfile } = useAuth();
+
+  useEffect(() => {
+    let mounted = true;
+    authService.fetchCurrentUser().then((currentUser) => {
+      if (mounted && currentUser) updateUserProfile(currentUser);
+    });
+    const refresh = () => authService.fetchCurrentUser().then((currentUser) => {
+      if (mounted && currentUser) updateUserProfile(currentUser);
+    });
+    const interval = window.setInterval(refresh, 30000);
+    window.addEventListener('focus', refresh);
+    return () => { mounted = false; window.clearInterval(interval); window.removeEventListener('focus', refresh); };
+  }, [updateUserProfile]);
 
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -117,7 +132,7 @@ export const StudentProfileView = () => {
         user
       );
 
-      updateUserProfile(updatedStudent);
+      updateUserProfile({ ...user, ...updatedStudent });
       setSuccessMsg('Profile updated successfully.');
     } catch (err) {
       setError(err.message || 'Failed to update profile. Please try again.');
@@ -141,6 +156,19 @@ export const StudentProfileView = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {user?.coordinatorAssignments?.length > 0 && (
+            <section className="coordinator-profile" aria-label="Coordinator assignments">
+              <h3>Coordinator Assignments</h3>
+              {user.coordinatorAssignments.map((assignment) => (
+                <div className="coordinator-profile__assignment" key={assignment.clubId}>
+                  <div><span>Designation</span><strong>Student Coordinator</strong></div>
+                  <div><span>Coordinator Of</span><strong>{assignment.clubName}</strong></div>
+                  <div><span>Assigned By</span><strong>{assignment.facultyName}</strong></div>
+                  <div><span>Assignment Status</span><Badge variant="success">{assignment.status === 'ACTIVE' ? 'Active' : assignment.status}</Badge></div>
+                </div>
+              ))}
+            </section>
+          )}
           {error && (
             <div className="dashboard-alert dashboard-alert--error mb-4" role="alert">
               <AlertCircle size={18} />

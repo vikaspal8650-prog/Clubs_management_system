@@ -59,20 +59,6 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  /**
-   * Switch role persona for demo & testing verification
-   */
-  const switchRoleDemo = useCallback(async (role) => {
-    setLoading(true);
-    try {
-      const switchedUser = await authService.switchRoleDemo(role);
-      setUser(switchedUser);
-      return switchedUser;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   // Helper authorization checks
   const isAuthenticated = Boolean(user);
   const isDSW = user?.role === ROLES.DSW;
@@ -124,7 +110,6 @@ export const AuthProvider = ({ children }) => {
     login,
     registerStudent,
     logout,
-    switchRoleDemo,
     getHomeRouteForRole,
     updateUserProfile,
   };

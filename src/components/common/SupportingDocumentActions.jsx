@@ -1,9 +1,8 @@
 import React from 'react';
 import { Download, Eye, FileText } from 'lucide-react';
 import { Button } from './Button';
+import { API_ORIGIN } from '../../services/api';
 import './SupportingDocumentActions.css';
-
-const apiOrigin = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/$/, '');
 
 export const getEventSupportingDocument = (event) =>
   event?.supportingDocument || event?.documents?.find((document) => document.category === 'Event Proposal') || null;
@@ -14,7 +13,7 @@ export const getSupportingDocumentUrl = (document) => {
     : document?.dataUrl || document?.fileUrl || document?.url || null;
 
   if (!fileReference) return null;
-  return fileReference.startsWith('/') ? `${apiOrigin}${fileReference}` : fileReference;
+  return fileReference.startsWith('/') ? `${API_ORIGIN}${fileReference}` : fileReference;
 };
 
 export const SupportingDocumentActions = ({ event }) => {

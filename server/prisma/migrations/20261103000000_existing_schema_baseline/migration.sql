@@ -1,0 +1,2 @@
+-- Existing PostgreSQL schema and records predate Prisma migration tracking.
+-- This marker is recorded as applied; it intentionally performs no DDL.

@@ -4,75 +4,68 @@
  * Manages network communication with Express Backend and handles error catching
  */
 
-const STORAGE_KEYS = {
-  USERS: 'ccms_users_v1',
-  CLUBS: 'ccms_clubs_v1',
-  EVENTS: 'ccms_events_v1',
-  ATTENDANCE: 'ccms_attendance_v1',
-  ATTENDANCE_SESSIONS: 'ccms_attendance_sessions_v1',
-  DEPARTMENTS: 'ccms_departments_v1',
-  NOTIFICATIONS: 'ccms_notifications_v1',
-  ACTIVITY_LOG: 'ccms_activity_log_v1',
-  CURRENT_USER: 'ccms_current_user_v1',
+export const API_BASE_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
+// Relative API paths are resolved by the browser against the current origin
+// (and by Vite's /api proxy in development). Only absolute API URLs need to
+// provide their own origin here.
+export const API_ORIGIN = /^https?:\/\//i.test(API_BASE_URL)
+  ? new URL(API_BASE_URL).origin
+  : (typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+const REQUEST_TIMEOUT_MS = 15_000;
+
+const messageForStatus = (status, serverMessage) => {
+  if (serverMessage) return serverMessage;
+  if (status === 401) return 'Invalid email or password.';
+  if (status === 403) return 'You are not authorized to perform this action.';
+  if (status === 404) return 'Requested resource was not found.';
+  if (status === 409) return 'Resource already exists.';
+  if (status === 503) return 'Database service is currently unavailable.';
+  if (status >= 500) return 'Something went wrong on the server.';
+  return `Request failed (${status}).`;
 };
-
-export const initStorage = () => {};
-
-export const getFromStorage = (key) => {
-  if (typeof localStorage === 'undefined') return null;
-  try {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : null;
-  } catch (err) {
-    console.error(`Error reading ${key} from storage:`, err);
-    return null;
-  }
-};
-
-export const saveToStorage = (key, value) => {
-  if (typeof localStorage === 'undefined') return;
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (err) {
-    console.error(`Error saving ${key} to storage:`, err);
-  }
-};
-
-export const simulateDelay = (ms = 200) =>
-  new Promise((resolve) => setTimeout(resolve, ms));
-
-const BASE_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/$/, '');
 
 export const api = {
   async request(endpoint, options = {}) {
-    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('ccms_token_v1') : null;
-    const url = `${BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    if (typeof window !== 'undefined' && API_ORIGIN !== window.location.origin && window.location.protocol === 'https:' && API_ORIGIN.startsWith('http:')) {
+      throw new Error('Secure page cannot connect to an insecure HTTP API. Set VITE_API_URL to an HTTPS endpoint.');
+    }
+    const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
     
     const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
     const headers = {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {}),
     };
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
       const res = await fetch(url, {
         ...options,
         headers,
+        signal: options.signal || controller.signal,
         credentials: 'include',
       });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || err.message || `HTTP error ${res.status}`);
+        const payload = await res.json().catch(() => ({}));
+        const error = new Error(messageForStatus(res.status, payload.error || payload.message));
+        error.status = res.status;
+        throw error;
       }
 
       return await res.json();
     } catch (err) {
+      if (err.status) throw err;
+      if (err.name === 'AbortError') {
+        throw new Error('The request timed out. Please try again.');
+      }
       if (err.name === 'TypeError' || err.message === 'Failed to fetch' || (err.message && err.message.includes('fetch'))) {
-        throw new Error('Unable to connect to the server. Please check that the backend is running.');
+        throw new Error('The request was blocked or the backend could not be reached. Check the backend URL, CORS origin, and browser network details.');
       }
       throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
   },
 
@@ -81,6 +74,9 @@ export const api = {
   },
 
   async post(endpoint, data) {
+    if (typeof FormData !== 'undefined' && data instanceof FormData) {
+      return this.request(endpoint, { method: 'POST', body: data });
+    }
     return this.request(endpoint, {
       method: 'POST',
       body: JSON.stringify(data),
@@ -100,4 +96,3 @@ export const api = {
 };
 
 export default api;
-export { STORAGE_KEYS };

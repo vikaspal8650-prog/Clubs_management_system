@@ -1,4 +1,4 @@
-import api, { saveToStorage, STORAGE_KEYS } from './api.js';
+import api from './api.js';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -22,12 +22,7 @@ export const authService = {
     if (!EMAIL_REGEX.test(cleanEmail)) throw new Error('Please enter a valid email address.');
 
     const res = await api.post('/auth/login', { email: cleanEmail, password: cleanPassword });
-    if (res.token) {
-      saveToStorage('ccms_token_v1', res.token);
-    }
-    if (res.user) {
-      saveToStorage(STORAGE_KEYS.CURRENT_USER, res.user);
-    }
+    // The HttpOnly cookie is the session credential. Do not copy JWTs to web storage.
     return res.user;
   },
 
@@ -85,12 +80,6 @@ export const authService = {
       password,
     });
 
-    if (res.token) {
-      saveToStorage('ccms_token_v1', res.token);
-    }
-    if (res.user) {
-      saveToStorage(STORAGE_KEYS.CURRENT_USER, res.user);
-    }
     return res.user;
   },
 
@@ -101,7 +90,6 @@ export const authService = {
     try {
       const user = await api.get('/auth/me');
       if (user) {
-        saveToStorage(STORAGE_KEYS.CURRENT_USER, user);
         return user;
       }
     } catch (err) {
@@ -123,23 +111,7 @@ export const authService = {
     } catch (e) {
       // Ignore network errors on logout
     }
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
-      localStorage.removeItem('ccms_token_v1');
-    }
+    if (typeof localStorage !== 'undefined') localStorage.removeItem('ccms_token_v1');
   },
 
-  /**
-   * Demo role switcher via backend API -> PostgreSQL
-   */
-  async switchRoleDemo(role) {
-    const res = await api.post('/auth/switch-role', { role });
-    if (res.token) {
-      saveToStorage('ccms_token_v1', res.token);
-    }
-    if (res.user) {
-      saveToStorage(STORAGE_KEYS.CURRENT_USER, res.user);
-    }
-    return res.user;
-  },
 };

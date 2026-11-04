@@ -3,7 +3,7 @@ const { getDepartments, saveDepartment, deleteDepartment } = require('../control
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 
 const router = express.Router();
-router.get('/', getDepartments);
+router.get('/', authenticate, getDepartments);
 router.post('/', authenticate, authorize(['DSW']), saveDepartment);
 router.put('/:id', authenticate, authorize(['DSW']), saveDepartment);
 router.delete('/:id', authenticate, authorize(['DSW']), deleteDepartment);

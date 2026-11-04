@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
-const { PrismaClient } = require('@prisma/client');
-const prisma = new PrismaClient();
+const { prisma } = require('../db');
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const validateStaffPassword = (password) => typeof password === 'string' && password.length >= 8 && /[a-z]/.test(password) && /[0-9]/.test(password) && /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]/.test(password);
 
 /**
  * GET /api/users
@@ -47,10 +48,13 @@ const getAllUsers = async (req, res) => {
  */
 const getStaffAccounts = async (req, res) => {
   try {
+    const where = { role: { in: ['HOD', 'FACULTY_INCHARGE'] } };
+    if (req.user.role !== 'DSW') {
+      const currentUser = await prisma.user.findUnique({ where: { id: req.user.id }, select: { department: true } });
+      where.department = currentUser?.department || '__none__';
+    }
     const staff = await prisma.user.findMany({
-      where: {
-        role: { in: ['HOD', 'FACULTY_INCHARGE'] },
-      },
+      where,
       select: {
         id: true,
         name: true,
@@ -106,10 +110,10 @@ const createHod = async (req, res) => {
 
     const { name, email, password, department } = req.body;
 
-    if (!name || !name.trim()) return res.status(400).json({ error: 'Full Name is required.' });
-    if (!email || !email.trim()) return res.status(400).json({ error: 'College Email is required.' });
-    if (!department || !department.trim()) return res.status(400).json({ error: 'Department is required.' });
-    if (!password || password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+    if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'Full Name is required.' });
+    if (typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) return res.status(400).json({ error: 'A valid college email is required.' });
+    if (typeof department !== 'string' || !department.trim()) return res.status(400).json({ error: 'Department is required.' });
+    if (!validateStaffPassword(password)) return res.status(400).json({ error: 'Password must be at least 8 characters and include a lowercase letter, number, and special symbol.' });
 
     const cleanEmail = email.trim().toLowerCase();
     const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
@@ -118,7 +122,6 @@ const createHod = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newHod = await prisma.user.create({
       data: {
-        id: `usr_hod_${Date.now()}`,
         name: name.trim(),
         email: cleanEmail,
         password: hashedPassword,
@@ -132,6 +135,7 @@ const createHod = async (req, res) => {
     delete safeObj.password;
     res.status(201).json(safeObj);
   } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'An account with this email address already exists.' });
     res.status(500).json({ error: 'Failed to create HOD account', details: err.message });
   }
 };
@@ -148,46 +152,63 @@ const createFaculty = async (req, res) => {
 
     const { name, email, password, department, clubIds } = req.body;
 
-    if (!name || !name.trim()) return res.status(400).json({ error: 'Full Name is required.' });
-    if (!email || !email.trim()) return res.status(400).json({ error: 'College Email is required.' });
-    if (!department || !department.trim()) return res.status(400).json({ error: 'Department is required.' });
-    if (!password || password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+    if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'Full Name is required.' });
+    if (typeof email !== 'string' || !EMAIL_REGEX.test(email.trim())) return res.status(400).json({ error: 'A valid college email is required.' });
+    if (typeof department !== 'string' || !department.trim()) return res.status(400).json({ error: 'Department is required.' });
+    if (!validateStaffPassword(password)) return res.status(400).json({ error: 'Password must be at least 8 characters and include a lowercase letter, number, and special symbol.' });
 
     const cleanEmail = email.trim().toLowerCase();
     const existing = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (existing) return res.status(400).json({ error: 'An account with this email address already exists.' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const newFaculty = await prisma.user.create({
-      data: {
-        id: `usr_faculty_${Date.now()}`,
-        name: name.trim(),
-        email: cleanEmail,
-        password: hashedPassword,
-        role: 'FACULTY_INCHARGE',
-        department: department.trim(),
-        status: 'ACTIVE',
-      },
+    const assignedClubs = Array.isArray(clubIds) ? clubIds : clubIds ? [clubIds] : [];
+    const uniqueClubIds = [...new Set(assignedClubs)];
+    const newFaculty = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          name: name.trim(),
+          email: cleanEmail,
+          password: hashedPassword,
+          role: 'FACULTY_INCHARGE',
+          department: department.trim(),
+          status: 'ACTIVE',
+        },
+      });
+      if (uniqueClubIds.length) {
+        const result = await tx.club.updateMany({
+          where: { id: { in: uniqueClubIds }, department: { equals: department.trim(), mode: 'insensitive' } },
+          data: { facultyInchargeId: created.id },
+        });
+        if (result.count !== uniqueClubIds.length) {
+          throw Object.assign(new Error('One or more selected clubs do not belong to this department.'), { status: 400 });
+        }
+      }
+      return created;
     });
 
-    const assignedClubs = Array.isArray(clubIds) ? clubIds : clubIds ? [clubIds] : [];
-    if (assignedClubs.length > 0) {
-      await prisma.club.updateMany({
-        where: { id: { in: assignedClubs } },
-        data: { facultyInchargeId: newFaculty.id },
-      });
-    }
-
-    const safeObj = { ...newFaculty, clubIds: assignedClubs };
+    const safeObj = { ...newFaculty, clubIds: uniqueClubIds };
     delete safeObj.password;
     res.status(201).json(safeObj);
   } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'An account with this email address already exists.' });
+    if (err.status === 400) return res.status(400).json({ error: err.message });
     res.status(500).json({ error: 'Failed to create Faculty account', details: err.message });
   }
 };
 
 /**
  * GET /api/users/department-students
+ *
+ * Fetches students belonging to the authenticated faculty/HOD's department.
+ *
+ * Matching strategy (applied in order, stops at first non-empty result):
+ *  1. Exact case-insensitive match on department or branch.
+ *  2. Keyword-based partial match — splits the faculty's department string into
+ *     significant words (≥3 chars, ignoring common stop-words) and returns
+ *     students whose department or branch contains ANY of those keywords.
+ *     This handles mismatches like "computer science and engineering" vs
+ *     "Computer Science" or "Computer Science & Engineering".
  */
 const getDepartmentStudents = async (req, res) => {
   try {
@@ -209,6 +230,7 @@ const getDepartmentStudents = async (req, res) => {
       const dept = (authUser.department || authUser.branch || '').trim();
       if (!dept) return res.status(400).json({ error: 'No department assigned to your account.' });
 
+      // --- Strategy 1: exact case-insensitive match ---
       students = await prisma.user.findMany({
         where: {
           role: 'STUDENT',
@@ -219,12 +241,61 @@ const getDepartmentStudents = async (req, res) => {
         },
         orderBy: { name: 'asc' },
       });
+
+      // --- Strategy 2: multi-keyword AND match (fallback) ---
+      // When exact match returns nothing, extract significant keywords from the
+      // faculty's department string and require ALL of them to appear in the
+      // student's department/branch. This prevents broad words like "engineering"
+      // from pulling in unrelated departments (e.g. a "Computer Science and
+      // Engineering" faculty would NOT see "Mechanical Engineering" students
+      // because "computer" must also match).
+      if (students.length === 0) {
+        const STOP_WORDS = new Set(['and', 'of', 'the', 'in', 'for', 'a', 'an', '&', 'to']);
+        const keywords = dept
+          .toLowerCase()
+          .split(/[\s&,]+/)
+          .map((w) => w.replace(/[^a-z0-9]/g, ''))
+          .filter((w) => w.length >= 4 && !STOP_WORDS.has(w))
+          .sort((a, b) => b.length - a.length); // longest (most specific) first
+
+        if (keywords.length > 0) {
+          const [primaryKw, ...restKws] = keywords;
+
+          // Fetch all students whose dept/branch contains the primary keyword
+          const candidateStudents = await prisma.user.findMany({
+            where: {
+              role: 'STUDENT',
+              OR: [
+                { department: { contains: primaryKw, mode: 'insensitive' } },
+                { branch: { contains: primaryKw, mode: 'insensitive' } },
+              ],
+            },
+            orderBy: { name: 'asc' },
+          });
+
+          // Apply AND-filter for remaining keywords in JS
+          if (restKws.length > 0) {
+            const andFiltered = candidateStudents.filter((s) => {
+              const haystack = `${s.department || ''} ${s.branch || ''}`.toLowerCase();
+              return restKws.every((kw) => haystack.includes(kw));
+            });
+            // If AND-filter eliminated every candidate, fall back to the broader set
+            students = andFiltered.length > 0 ? andFiltered : candidateStudents;
+          } else {
+            students = candidateStudents;
+          }
+        }
+      }
     }
 
-    const safeStudents = students.map(s => {
+    const safeStudents = await Promise.all(students.map(async (s) => {
       const { password, ...rest } = s;
+      if (s.role !== 'STUDENT') return rest;
+      const assignments = await prisma.clubCoordinator.findMany({ where: { userId: s.id, status: 'ACTIVE' }, include: { club: { select: { id: true, name: true } }, faculty: { select: { id: true, name: true } } } });
+      rest.coordinatorAssignments = assignments.map(({ clubId, status, facultyId, club, faculty }) => ({ clubId, status, facultyId, clubName: club.name, facultyName: faculty?.name || 'Unassigned' }));
+      rest.coordinatorOfClubs = rest.coordinatorAssignments.map((assignment) => assignment.clubId);
       return rest;
-    });
+    }));
 
     res.json(safeStudents);
   } catch (err) {
@@ -255,15 +326,14 @@ const deleteStudent = async (req, res) => {
     const authDept = (authUser.department || authUser.branch || '').trim().toLowerCase();
     const studentDept = (targetStudent.department || targetStudent.branch || '').trim().toLowerCase();
 
-    if (
-      authUser.role === 'FACULTY_INCHARGE' &&
-      authDept &&
-      studentDept &&
-      authDept !== studentDept &&
-      !authDept.includes(studentDept) &&
-      !studentDept.includes(authDept)
-    ) {
-      return res.status(403).json({ error: 'Forbidden: You can only delete students belonging to your assigned department.' });
+    if (authUser.role === 'FACULTY_INCHARGE') {
+      const [membership, coordinatorAssignment] = await Promise.all([
+        prisma.club.findFirst({ where: { facultyInchargeId: authUser.id, members: { some: { userId: studentId } } } }),
+        prisma.club.findFirst({ where: { facultyInchargeId: authUser.id, coordinators: { some: { userId: studentId, status: 'ACTIVE' } } } }),
+      ]);
+      if ((!authDept || !studentDept || authDept !== studentDept) && !membership && !coordinatorAssignment) {
+        return res.status(403).json({ error: 'You can only manage students in your department or assigned clubs.' });
+      }
     }
 
     await prisma.$transaction([
@@ -278,6 +348,7 @@ const deleteStudent = async (req, res) => {
 
     res.json({ message: 'Student deleted successfully.' });
   } catch (err) {
+    if (err.code === 'P2003') return res.status(409).json({ error: 'This account is linked to retained certificate records and cannot be deleted.' });
     res.status(500).json({ error: 'Failed to delete student', details: err.message });
   }
 };
@@ -362,7 +433,8 @@ const updateStudentProfile = async (req, res) => {
     const { password, ...safeUser } = updatedUser;
     res.json({ message: 'Profile updated successfully.', user: safeUser });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update profile', details: err.message });
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Email or roll number is already registered.' });
+    res.status(500).json({ error: 'Failed to update profile.' });
   }
 };
 
@@ -383,25 +455,22 @@ const deleteUser = async (req, res) => {
     if (!targetUser) return res.status(404).json({ error: 'User record not found.' });
     if (targetUser.role === 'DSW') return res.status(403).json({ error: 'DSW account cannot be deleted.' });
 
-    if (targetUser.role === 'FACULTY_INCHARGE') {
-      await prisma.club.updateMany({
-        where: { facultyInchargeId: targetUserId },
-        data: { facultyInchargeId: null },
-      });
-    }
-
-    await prisma.$transaction([
-      prisma.clubCoordinator.deleteMany({ where: { userId: targetUserId } }),
-      prisma.clubMember.deleteMany({ where: { userId: targetUserId } }),
-      prisma.eventRegistration.deleteMany({ where: { userId: targetUserId } }),
-      prisma.attendance.deleteMany({ where: { userId: targetUserId } }),
-      prisma.notification.deleteMany({ where: { userId: targetUserId } }),
-      prisma.activityLog.deleteMany({ where: { userId: targetUserId } }),
-      prisma.user.delete({ where: { id: targetUserId } }),
-    ]);
+    await prisma.$transaction(async (tx) => {
+      if (targetUser.role === 'FACULTY_INCHARGE') {
+        await tx.club.updateMany({ where: { facultyInchargeId: targetUserId }, data: { facultyInchargeId: null } });
+      }
+      await tx.clubCoordinator.deleteMany({ where: { userId: targetUserId } });
+      await tx.clubMember.deleteMany({ where: { userId: targetUserId } });
+      await tx.eventRegistration.deleteMany({ where: { userId: targetUserId } });
+      await tx.attendance.deleteMany({ where: { userId: targetUserId } });
+      await tx.notification.deleteMany({ where: { userId: targetUserId } });
+      await tx.activityLog.deleteMany({ where: { userId: targetUserId } });
+      await tx.user.delete({ where: { id: targetUserId } });
+    });
 
     res.json({ message: `${targetUser.role} account deleted successfully.` });
   } catch (err) {
+    if (err.code === 'P2003') return res.status(409).json({ error: 'This account is linked to retained certificate records and cannot be deleted.' });
     res.status(500).json({ error: 'Failed to delete user account', details: err.message });
   }
 };

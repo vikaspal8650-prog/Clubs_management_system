@@ -102,6 +102,9 @@ export const StudentDirectoryView = ({
           <div>
             <span className="user-cell__name">{row.name}</span>
             <span className="user-cell__email">{row.email}</span>
+            {row.coordinatorAssignments?.map((assignment) => (
+              <span className="user-cell__email" key={assignment.clubId}>Student Coordinator · {assignment.clubName} · Assigned by {assignment.facultyName} · Active</span>
+            ))}
           </div>
         </div>
       ),

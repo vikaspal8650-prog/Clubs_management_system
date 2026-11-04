@@ -13,13 +13,13 @@ const {
 } = require('../controllers/user.controller');
 const { authenticate, authorize } = require('../middlewares/auth.middleware');
 
-router.get('/', authenticate, getAllUsers);
-router.get('/staff', authenticate, authorize(['DSW']), getStaffAccounts);
-router.get('/stats', authenticate, getUserStats);
+router.get('/', authenticate, authorize(['DSW']), getAllUsers);
+router.get('/staff', authenticate, authorize(['DSW', 'HOD', 'FACULTY_INCHARGE']), getStaffAccounts);
+router.get('/stats', authenticate, authorize(['DSW']), getUserStats);
 router.post('/hod', authenticate, authorize(['DSW']), createHod);
 router.post('/faculty', authenticate, authorize(['DSW']), createFaculty);
-router.get('/department-students', authenticate, getDepartmentStudents);
-router.delete('/students/:id', authenticate, deleteStudent);
+router.get('/department-students', authenticate, authorize(['HOD', 'FACULTY_INCHARGE', 'DSW']), getDepartmentStudents);
+router.delete('/students/:id', authenticate, authorize(['FACULTY_INCHARGE', 'DSW']), deleteStudent);
 router.put('/profile', authenticate, updateStudentProfile);
 router.delete('/:id', authenticate, authorize(['DSW']), deleteUser);
 
