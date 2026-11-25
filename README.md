@@ -145,3 +145,30 @@ Student / Club Coordinator
           │
           ▼
        Final Control
+## Project layout and local setup
+
+The application is organized as two independently installable Node.js applications:
+
+- `frontend/` contains the React and Vite client.
+- `backend/` contains the Express API, Prisma schema and migrations, scripts, and uploaded files.
+- The root contains shared documentation, Git configuration, and the PostgreSQL Docker Compose file.
+
+Install dependencies from each application folder:
+
+```powershell
+cd frontend
+npm install
+Copy-Item .env.example .env
+npm run dev
+```
+
+In a second terminal, configure `backend/.env` with the database URL and backend secrets, then run:
+
+```powershell
+cd backend
+npm install
+npm run prisma:generate
+npm start
+```
+
+The frontend remains on port 3000 and the API remains on port 3001. Vite proxies `/api` to `http://127.0.0.1:3001` by default. Set `VITE_API_PROXY_TARGET` in `frontend/.env` to override the development target. For a local PostgreSQL container, configure the root `.env` with `POSTGRES_PASSWORD` and run `docker compose up -d db`.

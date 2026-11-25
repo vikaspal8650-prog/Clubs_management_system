@@ -1,25 +1,12 @@
 {
-  "name": "centralized-club-management-system",
-  "private": true,
+  "name": "central-club-management-system",
   "version": "1.0.0",
-  "type": "module",
+  "private": true,
+  "description": "Root scripts for the CCMS frontend and backend workspaces",
   "scripts": {
-    "dev": "vite",
-    "server": "npm --prefix server start",
-    "server:dev": "npm --prefix server run dev",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "jspdf": "^4.2.1",
-    "lucide-react": "^1.16.0",
-    "qrcode.react": "^4.2.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.28.0"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^6.0.1"
+    "dev": "npm --prefix frontend run dev",
+    "server": "npm --prefix backend run dev",
+    "build": "npm --prefix frontend run build",
+    "postinstall": "npm --prefix frontend install && npm --prefix backend install && npm --prefix backend run prisma:generate"
   }
 }

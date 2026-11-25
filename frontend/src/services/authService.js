@@ -1,0 +1,117 @@
+import api from './api.js';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const VALID_SEMESTERS_BY_YEAR = {
+  '1st Year': ['Semester 1', 'Semester 2'],
+  '2nd Year': ['Semester 3', 'Semester 4'],
+  '3rd Year': ['Semester 5', 'Semester 6'],
+  '4th Year': ['Semester 7', 'Semester 8'],
+};
+
+export const authService = {
+  /**
+   * Authenticate user via backend REST API -> PostgreSQL
+   */
+  async login(email, password) {
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanPassword = typeof password === 'string' ? password : '';
+
+    if (!cleanEmail) throw new Error('Please enter your college email address.');
+    if (!cleanPassword) throw new Error('Please enter your password.');
+    if (!EMAIL_REGEX.test(cleanEmail)) throw new Error('Please enter a valid email address.');
+
+    const res = await api.post('/auth/login', { email: cleanEmail, password: cleanPassword });
+    // The HttpOnly cookie is the session credential. Do not copy JWTs to web storage.
+    return res.user;
+  },
+
+  /**
+   * Student Registration via backend REST API -> PostgreSQL
+   */
+  async registerStudent(studentData) {
+    const {
+      name,
+      email,
+      rollNumber,
+      branch,
+      year,
+      semester,
+      password,
+      confirmPassword,
+    } = studentData;
+
+    if (!name || !name.trim()) throw new Error('Full Name is required.');
+    const cleanEmail = (email || '').trim().toLowerCase();
+    if (!cleanEmail) throw new Error('College Email is required.');
+    if (!EMAIL_REGEX.test(cleanEmail)) throw new Error('Please provide a valid college email address.');
+
+    const cleanRollNumber = (rollNumber || '').trim();
+    if (!cleanRollNumber) throw new Error('Roll Number is required.');
+    if (!/^\d{10,15}$/.test(cleanRollNumber)) {
+      throw new Error('Roll number must consist of 10 to 15 digits only.');
+    }
+
+    if (!branch || !branch.trim()) throw new Error('Please select your academic branch.');
+    if (!year || !year.trim()) throw new Error('Please select your academic year.');
+    if (!semester || !semester.trim()) throw new Error('Please select your current semester.');
+
+    const validSems = VALID_SEMESTERS_BY_YEAR[year.trim()];
+    if (validSems && !validSems.includes(semester.trim())) {
+      throw new Error(`Invalid semester (${semester}) selected for ${year}.`);
+    }
+
+    if (!password) throw new Error('Password is required.');
+    if (password.length < 8) throw new Error('Password must be at least 8 characters long.');
+    if (!/[a-z]/.test(password)) throw new Error('Password must contain at least one lowercase letter.');
+    if (!/[0-9]/.test(password)) throw new Error('Password must contain at least one number.');
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      throw new Error('Password must contain at least one special symbol (e.g. @, #, $, !).');
+    }
+    if (password !== confirmPassword) throw new Error('Password and confirmation password do not match.');
+
+    const res = await api.post('/auth/register', {
+      name: name.trim(),
+      email: cleanEmail,
+      rollNumber: cleanRollNumber,
+      branch: branch.trim(),
+      year: year.trim(),
+      semester: semester.trim(),
+      password,
+    });
+
+    return res.user;
+  },
+
+  /**
+   * Get current authenticated user session
+   */
+  async fetchCurrentUser() {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await api.get('/auth/me');
+      } catch (err) {
+        if (err.status === 401) return null;
+        if (attempt === 2) throw err;
+        await new Promise((resolve) => setTimeout(resolve, 400 * (2 ** attempt)));
+      }
+    }
+    return null;
+  },
+
+  getCurrentUser() {
+    return null;
+  },
+
+  /**
+   * Logout user
+   */
+  async logout() {
+    try {
+      await api.post('/auth/logout', {});
+    } catch (e) {
+      // Ignore network errors on logout
+    }
+  },
+
+};

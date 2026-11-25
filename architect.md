@@ -93,7 +93,7 @@ flowchart TB
 
 ## 4. Architecture Pattern & Design Guarantees
 
-1. **Component-Based Frontend**: Structured with atomic React components (`src/components/common`), specialized view components (`src/components/student/StudentProfileView.jsx`, `src/components/common/StudentDirectoryView.jsx`), and role dashboard orchestrators (`src/pages`), encapsulated with modular CSS.
+1. **Component-Based Frontend**: Structured with atomic React components (`frontend/src/components/common`), specialized view components (`frontend/src/components/student/StudentProfileView.jsx`, `frontend/src/components/common/StudentDirectoryView.jsx`), and role dashboard orchestrators (`frontend/src/pages`), encapsulated with modular CSS.
 2. **Single Source of Truth**: All application state (Users, HODs, Faculty, Students, Clubs, Events, Approvals, Attendance, Registrations) resides strictly in PostgreSQL (`ccms_db`).
 3. **No Browser-Storage Fallback Database**: Frontend services do not maintain or query local storage as a database fallback. All CRUD actions execute over the Express REST API (`http://localhost:5000/api`).
 4. **Backend Role Authorization (RBAC)**: All protected API routes verify JWT Bearer tokens and enforce role-based access control server-side.
@@ -106,21 +106,25 @@ flowchart TB
 ```
 centralclubs/
 ├── architect.md                 # System Architecture & Documentation
-├── index.html                   # Entry HTML template
-├── package.json                 # Frontend dependencies (React, Vite, jsPDF, Lucide)
-├── vite.config.js               # Vite bundler configuration
-├── server/
-│   ├── .env                     # PORT, DATABASE_URL, JWT_SECRET
-│   ├── package.json             # Backend dependencies (Express, Prisma, Bcrypt, JWT)
-│   ├── prisma/
-│   │   └── schema.prisma        # PostgreSQL Schema Definition
+├── docker-compose.yml           # Local PostgreSQL service
+├── backend/
+│   ├── .env                     # PORT, DATABASE_URL, JWT_SECRET (ignored)
+│   ├── package.json             # Backend dependencies and scripts
+│   ├── prisma/                  # PostgreSQL schema and migrations
+│   ├── scripts/                 # Backend utility scripts
+│   ├── uploads/                 # Backend upload storage
 │   └── src/
-│       ├── index.js             # Express Server entrypoint (Port 5000)
+│       ├── index.js             # Express API entrypoint (port 3001)
 │       ├── seed.js              # One-time database seed script
 │       ├── controllers/         # auth, club, event, user controllers
 │       ├── middlewares/         # auth & authorize middleware
 │       └── routes/              # auth, club, event, user REST routes
-└── src/
+└── frontend/
+    ├── index.html               # Entry HTML template
+    ├── package.json             # React and Vite dependencies
+    ├── vite.config.js           # Vite bundler and API proxy
+    ├── public/                  # Public frontend assets
+    └── src/
     ├── constants/               # Roles, event statuses, departments
     ├── context/                 # AuthContext (JWT session restoration)
     ├── data/                    # Initial constants

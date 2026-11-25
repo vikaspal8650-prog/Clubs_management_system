@@ -7,7 +7,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: ccms_user
-      POSTGRES_PASSWORD: ccms_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the project-root .env file}
       POSTGRES_DB: ccms_db
     ports:
       - "5432:5432"
